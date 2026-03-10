@@ -12,3 +12,9 @@ build/
 .idea/
 mlflow.db
 notebooks/*.png
+
+data/processed/
+data/prepared/
+data/models/
+data/raw/House_Rent_10M_balanced_40cities.csv
+models/

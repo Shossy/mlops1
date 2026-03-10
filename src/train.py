@@ -73,7 +73,7 @@ def plot_predictions(y_true, y_pred, save_path: str, title: str = 'Actual vs Pre
 
 def main():
     if len(sys.argv) != 3:
-        print(f"Usage: python {sys.argv[0]} <prepared_dir> <output_dir>")
+        print(f"Using: python {sys.argv[0]} <prepared_dir> <output_dir>")
         sys.exit(1)
 
     prepared_dir = sys.argv[1]

@@ -7,3 +7,5 @@ mlflow
 jupyter
 pyarrow
 fastparquet
+dvc
+pyyaml

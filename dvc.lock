@@ -1,0 +1,58 @@
+schema: '2.0'
+stages:
+  prepare:
+    cmd: python src/prepare.py data/raw/House_Rent_10M_balanced_40cities.csv 
+      data/prepared
+    deps:
+    - path: data/raw/House_Rent_10M_balanced_40cities.csv
+      hash: md5
+      md5: 04a2335c7d615996b6e266dcbe991501
+      size: 1303141128
+    - path: src/prepare.py
+      hash: md5
+      md5: 94ffe81a07d800a4d46200bdf2be780d
+      size: 1927
+    - path: src/preprocess.py
+      hash: md5
+      md5: 07c4999f200c08451cbaf0b4301d461b
+      size: 5146
+    params:
+      params.yaml:
+        prepare:
+          nrows: 500000
+          test_size: 0.2
+          random_state: 42
+    outs:
+    - path: data/prepared
+      hash: md5
+      md5: d14ac650f889770566ebc04c5ae8dc3c.dir
+      size: 23876882
+      nfiles: 2
+  train:
+    cmd: python src/train.py data/prepared data/models
+    deps:
+    - path: data/prepared
+      hash: md5
+      md5: d14ac650f889770566ebc04c5ae8dc3c.dir
+      size: 23876882
+      nfiles: 2
+    - path: src/train.py
+      hash: md5
+      md5: 466320d47a8fb17719eaf1407b9e9009
+      size: 7180
+    params:
+      params.yaml:
+        train:
+          n_estimators: 100
+          max_depth: 10
+          min_samples_split: 2
+          min_samples_leaf: 1
+          max_features: sqrt
+          random_state: 42
+          experiment_name: House_Rent_Prediction
+    outs:
+    - path: data/models
+      hash: md5
+      md5: 7f740603c10262c1cce279e257482adf.dir
+      size: 14441089
+      nfiles: 1

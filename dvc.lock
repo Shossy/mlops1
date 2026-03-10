@@ -44,7 +44,7 @@ stages:
       params.yaml:
         train:
           n_estimators: 100
-          max_depth: 10
+          max_depth: 20
           min_samples_split: 2
           min_samples_leaf: 1
           max_features: sqrt
@@ -53,6 +53,6 @@ stages:
     outs:
     - path: data/models
       hash: md5
-      md5: 7f740603c10262c1cce279e257482adf.dir
-      size: 14441089
+      md5: c94ceb89fe82432b3841829a1536790d.dir
+      size: 1613090801
       nfiles: 1

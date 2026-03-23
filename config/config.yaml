@@ -1,0 +1,23 @@
+defaults:
+  - model: random_forest
+  - hpo: optuna
+  - _self_
+
+seed: 42
+
+mlflow:
+  tracking_uri: ""
+  experiment_name: House_Rent_HPO_Lab3
+  log_model: true
+  register_model: false
+  model_name: HouseRentRF_Optimized
+  stage: Staging
+
+data:
+  train_path: data/prepared/train.csv
+  test_path: data/prepared/test.csv
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null

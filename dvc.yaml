@@ -19,3 +19,17 @@ stages:
       - train
     outs:
       - data/models
+
+  optimize:
+    cmd: python src/optimize.py
+    deps:
+      - data/prepared/train.csv
+      - data/prepared/test.csv
+      - src/optimize.py
+      - config/config.yaml
+      - config/model/random_forest.yaml
+      - config/hpo/optuna.yaml
+      - config/hpo/random.yaml
+      - config/hpo/grid.yaml
+    outs:
+      - models/best_model.pkl

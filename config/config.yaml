@@ -1,9 +1,42 @@
 defaults:
   - model: random_forest
-  - hpo: optuna
   - _self_
+  - hpo: optuna
 
 seed: 42
+
+# Shared HPO settings (sampler / n_trials come from config/hpo/*.yaml — merged last)
+hpo:
+  n_trials: 20
+  metric: val_rmse_log
+  direction: minimize
+  val_size: 0.15
+  use_cv: false
+  cv_folds: 5
+  random_forest:
+    n_estimators:
+      low: 50
+      high: 300
+    max_depth:
+      low: 5
+      high: 40
+    min_samples_split:
+      low: 2
+      high: 20
+    min_samples_leaf:
+      low: 1
+      high: 10
+    max_features:
+      choices:
+        - sqrt
+        - log2
+  grid:
+    random_forest:
+      n_estimators: [50, 150]
+      max_depth: [10, 25]
+      min_samples_split: [2, 10]
+      min_samples_leaf: [1, 4]
+      max_features: [sqrt, log2]
 
 mlflow:
   tracking_uri: ""

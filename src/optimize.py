@@ -33,8 +33,8 @@ from sklearn.model_selection import KFold, train_test_split
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S',
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def set_global_seed(seed: int) -> None:
 def _git_commit_short() -> str:
     try:
         r = subprocess.run(
-            ['git', 'rev-parse', '--short', 'HEAD'],
+            ["git", "rev-parse", "--short", "HEAD"],
             cwd=Path(__file__).resolve().parents[1],
             capture_output=True,
             text=True,
@@ -57,46 +57,54 @@ def _git_commit_short() -> str:
             return r.stdout.strip()
     except (OSError, subprocess.SubprocessError):
         pass
-    return 'unknown'
+    return "unknown"
 
 
 def _dvc_data_revision(project_root: Path) -> str:
-    dvc_file = project_root / 'data' / 'raw' / 'House_Rent_10M_balanced_40cities.csv.dvc'
+    dvc_file = (
+        project_root / "data" / "raw" / "House_Rent_10M_balanced_40cities.csv.dvc"
+    )
     if dvc_file.is_file():
         try:
-            return dvc_file.read_text(encoding='utf-8')[:500]
+            return dvc_file.read_text(encoding="utf-8")[:500]
         except OSError:
             pass
-    return 'n/a'
+    return "n/a"
 
 
 def load_prepared_csvs(cfg: DictConfig) -> Tuple[pd.DataFrame, pd.DataFrame]:
     train_path = to_absolute_path(cfg.data.train_path)
     test_path = to_absolute_path(cfg.data.test_path)
     if not os.path.isfile(train_path):
-        raise FileNotFoundError(f"Train CSV not found: {train_path}. Run: dvc repro prepare")
+        raise FileNotFoundError(
+            f"Train CSV not found: {train_path}. Run: dvc repro prepare"
+        )
     if not os.path.isfile(test_path):
-        raise FileNotFoundError(f"Test CSV not found: {test_path}. Run: dvc repro prepare")
+        raise FileNotFoundError(
+            f"Test CSV not found: {test_path}. Run: dvc repro prepare"
+        )
     train_df = pd.read_csv(train_path)
     test_df = pd.read_csv(test_path)
-    if 'Rent' not in train_df.columns:
-        raise ValueError("train.csv must contain a 'Rent' column (log-target prepared data).")
+    if "Rent" not in train_df.columns:
+        raise ValueError(
+            "train.csv must contain a 'Rent' column (log-target prepared data)."
+        )
     return train_df, test_df
 
 
 def build_rf(params: Dict[str, Any], seed: int) -> RandomForestRegressor:
-    mf = params['max_features']
-    if mf == 'sqrt':
-        max_features = 'sqrt'
-    elif mf == 'log2':
-        max_features = 'log2'
+    mf = params["max_features"]
+    if mf == "sqrt":
+        max_features = "sqrt"
+    elif mf == "log2":
+        max_features = "log2"
     else:
         max_features = mf
     return RandomForestRegressor(
-        n_estimators=params['n_estimators'],
-        max_depth=params['max_depth'],
-        min_samples_split=params['min_samples_split'],
-        min_samples_leaf=params['min_samples_leaf'],
+        n_estimators=params["n_estimators"],
+        max_depth=params["max_depth"],
+        min_samples_split=params["min_samples_split"],
+        min_samples_leaf=params["min_samples_leaf"],
         max_features=max_features,
         random_state=seed,
         n_jobs=-1,
@@ -105,9 +113,9 @@ def build_rf(params: Dict[str, Any], seed: int) -> RandomForestRegressor:
 
 def metrics_regression(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     return {
-        'rmse': float(np.sqrt(mean_squared_error(y_true, y_pred))),
-        'mae': float(mean_absolute_error(y_true, y_pred)),
-        'r2': float(r2_score(y_true, y_pred)),
+        "rmse": float(np.sqrt(mean_squared_error(y_true, y_pred))),
+        "mae": float(mean_absolute_error(y_true, y_pred)),
+        "r2": float(r2_score(y_true, y_pred)),
     }
 
 
@@ -141,9 +149,9 @@ def evaluate_cv(
         maes.append(float(mean_absolute_error(yt, pred)))
         r2s.append(float(r2_score(yt, pred)))
     return {
-        'rmse': float(np.mean(rmses)),
-        'mae': float(np.mean(maes)),
-        'r2': float(np.mean(r2s)),
+        "rmse": float(np.mean(rmses)),
+        "mae": float(np.mean(maes)),
+        "r2": float(np.mean(r2s)),
     }
 
 
@@ -153,11 +161,11 @@ def make_sampler(
     grid_space: Optional[Dict[str, list]] = None,
 ) -> optuna.samplers.BaseSampler:
     name = sampler_name.lower()
-    if name == 'tpe':
+    if name == "tpe":
         return optuna.samplers.TPESampler(seed=seed)
-    if name == 'random':
+    if name == "random":
         return optuna.samplers.RandomSampler(seed=seed)
-    if name == 'grid':
+    if name == "grid":
         if not grid_space:
             raise ValueError("sampler='grid' requires grid_space.")
         return optuna.samplers.GridSampler(search_space=grid_space)
@@ -167,24 +175,24 @@ def make_sampler(
 def suggest_rf_params(trial: optuna.Trial, cfg: DictConfig) -> Dict[str, Any]:
     space = cfg.hpo.random_forest
     return {
-        'n_estimators': trial.suggest_int(
-            'n_estimators', int(space.n_estimators.low), int(space.n_estimators.high)
+        "n_estimators": trial.suggest_int(
+            "n_estimators", int(space.n_estimators.low), int(space.n_estimators.high)
         ),
-        'max_depth': trial.suggest_int(
-            'max_depth', int(space.max_depth.low), int(space.max_depth.high)
+        "max_depth": trial.suggest_int(
+            "max_depth", int(space.max_depth.low), int(space.max_depth.high)
         ),
-        'min_samples_split': trial.suggest_int(
-            'min_samples_split',
+        "min_samples_split": trial.suggest_int(
+            "min_samples_split",
             int(space.min_samples_split.low),
             int(space.min_samples_split.high),
         ),
-        'min_samples_leaf': trial.suggest_int(
-            'min_samples_leaf',
+        "min_samples_leaf": trial.suggest_int(
+            "min_samples_leaf",
             int(space.min_samples_leaf.low),
             int(space.min_samples_leaf.high),
         ),
-        'max_features': trial.suggest_categorical(
-            'max_features', list(space.max_features.choices)
+        "max_features": trial.suggest_categorical(
+            "max_features", list(space.max_features.choices)
         ),
     }
 
@@ -192,20 +200,20 @@ def suggest_rf_params(trial: optuna.Trial, cfg: DictConfig) -> Dict[str, Any]:
 def suggest_rf_params_grid(trial: optuna.Trial, cfg: DictConfig) -> Dict[str, Any]:
     g = cfg.hpo.grid.random_forest
     return {
-        'n_estimators': trial.suggest_categorical('n_estimators', list(g.n_estimators)),
-        'max_depth': trial.suggest_categorical('max_depth', list(g.max_depth)),
-        'min_samples_split': trial.suggest_categorical(
-            'min_samples_split', list(g.min_samples_split)
+        "n_estimators": trial.suggest_categorical("n_estimators", list(g.n_estimators)),
+        "max_depth": trial.suggest_categorical("max_depth", list(g.max_depth)),
+        "min_samples_split": trial.suggest_categorical(
+            "min_samples_split", list(g.min_samples_split)
         ),
-        'min_samples_leaf': trial.suggest_categorical(
-            'min_samples_leaf', list(g.min_samples_leaf)
+        "min_samples_leaf": trial.suggest_categorical(
+            "min_samples_leaf", list(g.min_samples_leaf)
         ),
-        'max_features': trial.suggest_categorical('max_features', list(g.max_features)),
+        "max_features": trial.suggest_categorical("max_features", list(g.max_features)),
     }
 
 
 def rf_params_from_trial(trial: optuna.Trial, cfg: DictConfig) -> Dict[str, Any]:
-    if str(cfg.hpo.sampler).lower() == 'grid':
+    if str(cfg.hpo.sampler).lower() == "grid":
         return suggest_rf_params_grid(trial, cfg)
     return suggest_rf_params(trial, cfg)
 
@@ -213,11 +221,11 @@ def rf_params_from_trial(trial: optuna.Trial, cfg: DictConfig) -> Dict[str, Any]
 def build_grid_search_space(cfg: DictConfig) -> Dict[str, list]:
     g = cfg.hpo.grid.random_forest
     return {
-        'n_estimators': list(g.n_estimators),
-        'max_depth': list(g.max_depth),
-        'min_samples_split': list(g.min_samples_split),
-        'min_samples_leaf': list(g.min_samples_leaf),
-        'max_features': list(g.max_features),
+        "n_estimators": list(g.n_estimators),
+        "max_depth": list(g.max_depth),
+        "min_samples_split": list(g.min_samples_split),
+        "min_samples_leaf": list(g.min_samples_leaf),
+        "max_features": list(g.max_features),
     }
 
 
@@ -234,8 +242,8 @@ def register_model_if_enabled(
             version=mv.version,
             stage=stage,
         )
-        client.set_model_version_tag(model_name, mv.version, 'registered_by', 'lab3')
-        client.set_model_version_tag(model_name, mv.version, 'stage', stage)
+        client.set_model_version_tag(model_name, mv.version, "registered_by", "lab3")
+        client.set_model_version_tag(model_name, mv.version, "stage", stage)
         logger.info("Registered model %s v%s -> %s", model_name, mv.version, stage)
     except Exception as exc:  # noqa: BLE001
         logger.warning(
@@ -245,19 +253,21 @@ def register_model_if_enabled(
 
 
 def _json_safe_value(v: Any) -> Any:
-    if hasattr(v, 'item'):
+    if hasattr(v, "item"):
         return v.item()
     if isinstance(v, (np.integer, np.floating)):
         return int(v) if isinstance(v, np.integer) else float(v)
     return v
 
 
-def log_repro_tags(cfg: DictConfig, project_root: Path, extra: Optional[Dict[str, str]] = None) -> None:
-    mlflow.set_tag('seed', str(cfg.seed))
-    mlflow.set_tag('git_commit', _git_commit_short())
-    mlflow.set_tag('dvc_raw_dvc_head', _dvc_data_revision(project_root)[:120])
-    mlflow.set_tag('train_path', str(cfg.data.train_path))
-    mlflow.set_tag('test_path', str(cfg.data.test_path))
+def log_repro_tags(
+    cfg: DictConfig, project_root: Path, extra: Optional[Dict[str, str]] = None
+) -> None:
+    mlflow.set_tag("seed", str(cfg.seed))
+    mlflow.set_tag("git_commit", _git_commit_short())
+    mlflow.set_tag("dvc_raw_dvc_head", _dvc_data_revision(project_root)[:120])
+    mlflow.set_tag("train_path", str(cfg.data.train_path))
+    mlflow.set_tag("test_path", str(cfg.data.test_path))
     if extra:
         for k, v in extra.items():
             mlflow.set_tag(k, v)
@@ -281,32 +291,38 @@ def objective_factory(
             nested=True,
             run_name=f"trial_{trial.number:03d}",
         ):
-            log_repro_tags(cfg, Path(__file__).resolve().parents[1], extra={'trial_number': str(trial.number)})
-            mlflow.set_tag('trial_number', str(trial.number))
-            mlflow.set_tag('model_type', str(cfg.model.type))
-            mlflow.set_tag('sampler', str(cfg.hpo.sampler))
+            log_repro_tags(
+                cfg,
+                Path(__file__).resolve().parents[1],
+                extra={"trial_number": str(trial.number)},
+            )
+            mlflow.set_tag("trial_number", str(trial.number))
+            mlflow.set_tag("model_type", str(cfg.model.type))
+            mlflow.set_tag("sampler", str(cfg.hpo.sampler))
             mlflow.log_params({k: str(v) for k, v in params.items()})
 
             model = build_rf(params, int(cfg.seed))
 
             if use_cv:
                 m = clone(model)
-                scores = evaluate_cv(m, X_full, y_full, int(cfg.hpo.cv_folds), int(cfg.seed))
-                rmse = scores['rmse']
-                mlflow.log_metric('val_rmse_log', rmse)
-                mlflow.log_metric('val_mae_log', scores['mae'])
-                mlflow.log_metric('val_r2', scores['r2'])
+                scores = evaluate_cv(
+                    m, X_full, y_full, int(cfg.hpo.cv_folds), int(cfg.seed)
+                )
+                rmse = scores["rmse"]
+                mlflow.log_metric("val_rmse_log", rmse)
+                mlflow.log_metric("val_mae_log", scores["mae"])
+                mlflow.log_metric("val_r2", scores["r2"])
             else:
                 scores = evaluate_holdout(model, X_sub, y_sub, X_val, y_val)
-                rmse = scores['rmse']
-                mlflow.log_metric('val_rmse_log', rmse)
-                mlflow.log_metric('val_mae_log', scores['mae'])
-                mlflow.log_metric('val_r2', scores['r2'])
+                rmse = scores["rmse"]
+                mlflow.log_metric("val_rmse_log", rmse)
+                mlflow.log_metric("val_mae_log", scores["mae"])
+                mlflow.log_metric("val_r2", scores["r2"])
 
-            if metric_key == 'val_rmse_log':
+            if metric_key == "val_rmse_log":
                 return rmse
-            if metric_key == 'val_r2':
-                return -scores['r2']
+            if metric_key == "val_r2":
+                return -scores["r2"]
             raise ValueError(f"Unsupported hpo.metric: {metric_key}")
 
     return objective
@@ -322,10 +338,10 @@ def main(cfg: DictConfig) -> None:
     mlflow.set_experiment(cfg.mlflow.experiment_name)
 
     train_df, test_df = load_prepared_csvs(cfg)
-    X_full = train_df.drop(columns=['Rent'])
-    y_full = train_df['Rent']
-    X_test = test_df.drop(columns=['Rent'])
-    y_test = test_df['Rent']
+    X_full = train_df.drop(columns=["Rent"])
+    y_full = train_df["Rent"]
+    X_test = test_df.drop(columns=["Rent"])
+    y_test = test_df["Rent"]
 
     use_cv = bool(cfg.hpo.use_cv)
     if use_cv:
@@ -339,7 +355,7 @@ def main(cfg: DictConfig) -> None:
         )
 
     grid_space = None
-    if str(cfg.hpo.sampler).lower() == 'grid':
+    if str(cfg.hpo.sampler).lower() == "grid":
         grid_space = build_grid_search_space(cfg)
 
     sampler = make_sampler(str(cfg.hpo.sampler), int(cfg.seed), grid_space=grid_space)
@@ -349,13 +365,13 @@ def main(cfg: DictConfig) -> None:
 
     parent_run_name = f"hpo_{cfg.hpo.sampler}_n{cfg.hpo.n_trials}"
     with mlflow.start_run(run_name=parent_run_name) as parent_run:
-        log_repro_tags(cfg, project_root, extra={'run_role': 'hpo_parent'})
-        mlflow.set_tag('model_type', str(cfg.model.type))
-        mlflow.set_tag('sampler', str(cfg.hpo.sampler))
-        mlflow.set_tag('n_trials', str(cfg.hpo.n_trials))
+        log_repro_tags(cfg, project_root, extra={"run_role": "hpo_parent"})
+        mlflow.set_tag("model_type", str(cfg.model.type))
+        mlflow.set_tag("sampler", str(cfg.hpo.sampler))
+        mlflow.set_tag("n_trials", str(cfg.hpo.n_trials))
         mlflow.log_dict(
             OmegaConf.to_container(cfg, resolve=True),
-            'config_resolved.json',
+            "config_resolved.json",
         )
 
         obj = objective_factory(
@@ -373,12 +389,17 @@ def main(cfg: DictConfig) -> None:
         mlflow.log_metric(f"best_{cfg.hpo.metric}", float(best.value))
         mlflow.log_dict(
             {k: _json_safe_value(v) for k, v in best.params.items()},
-            'best_params.json',
+            "best_params.json",
         )
 
         best_params = {}
         for k, v in best.params.items():
-            if k in ('max_depth', 'min_samples_split', 'min_samples_leaf', 'n_estimators'):
+            if k in (
+                "max_depth",
+                "min_samples_split",
+                "min_samples_leaf",
+                "n_estimators",
+            ):
                 best_params[k] = int(v)
             else:
                 best_params[k] = v
@@ -388,29 +409,29 @@ def main(cfg: DictConfig) -> None:
 
         test_pred = final_model.predict(X_test)
         test_scores = metrics_regression(np.asarray(y_test), test_pred)
-        mlflow.log_metric('final_test_rmse_log', test_scores['rmse'])
-        mlflow.log_metric('final_test_mae_log', test_scores['mae'])
-        mlflow.log_metric('final_test_r2', test_scores['r2'])
+        mlflow.log_metric("final_test_rmse_log", test_scores["rmse"])
+        mlflow.log_metric("final_test_mae_log", test_scores["mae"])
+        mlflow.log_metric("final_test_r2", test_scores["r2"])
 
         y_test_inr = np.expm1(y_test)
         pred_inr = np.expm1(test_pred)
         mlflow.log_metric(
-            'final_test_rmse_inr',
+            "final_test_rmse_inr",
             float(np.sqrt(mean_squared_error(y_test_inr, pred_inr))),
         )
         mlflow.log_metric(
-            'final_test_mae_inr',
+            "final_test_mae_inr",
             float(mean_absolute_error(y_test_inr, pred_inr)),
         )
 
-        models_dir = project_root / 'models'
+        models_dir = project_root / "models"
         models_dir.mkdir(parents=True, exist_ok=True)
-        best_path = models_dir / 'best_model.pkl'
+        best_path = models_dir / "best_model.pkl"
         joblib.dump(final_model, best_path)
         mlflow.log_artifact(str(best_path))
 
         if cfg.mlflow.log_model:
-            mlflow.sklearn.log_model(final_model, artifact_path='model')
+            mlflow.sklearn.log_model(final_model, artifact_path="model")
 
         if cfg.mlflow.register_model and cfg.mlflow.log_model:
             uri = f"runs:/{parent_run.info.run_id}/model"
@@ -423,13 +444,17 @@ def main(cfg: DictConfig) -> None:
 
         logger.info("Best trial %s: %s = %s", best.number, cfg.hpo.metric, best.value)
         logger.info("Best params: %s", best_params)
-        logger.info("Final test RMSE (log): %.5f | R2: %.5f", test_scores['rmse'], test_scores['r2'])
+        logger.info(
+            "Final test RMSE (log): %.5f | R2: %.5f",
+            test_scores["rmse"],
+            test_scores["r2"],
+        )
 
 
-@hydra.main(version_base=None, config_path='../config', config_name='config')
+@hydra.main(version_base=None, config_path="../config", config_name="config")
 def hydra_entry(cfg: DictConfig) -> None:
     main(cfg)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     hydra_entry()

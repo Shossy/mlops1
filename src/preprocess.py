@@ -26,14 +26,14 @@ def load_data(path: str, nrows: int = 500_000) -> pd.DataFrame:
 def preprocess(df: pd.DataFrame, target_log: bool = True) -> tuple:
     """
     Повна передобробка датасету.
-    
+
     Кроки:
     1. Видалення непотрібних колонок
     2. Обробка пропущених значень
     3. Feature Engineering (floor_number, total_floors)
     4. Кодування категоріальних змінних
     5. Логарифмування цільової змінної (опційно)
-    
+
     Returns:
         X (pd.DataFrame), y (pd.Series)
     """
@@ -41,16 +41,16 @@ def preprocess(df: pd.DataFrame, target_log: bool = True) -> tuple:
     logger.info("Починаємо передобробку...")
 
     # --- 1. Видалення колонок з низькою інформативністю ---
-    drop_cols = ['Property ID', 'Posted On', 'Area Locality', 'Point of Contact']
+    drop_cols = ["Property ID", "Posted On", "Area Locality", "Point of Contact"]
     df.drop(columns=[c for c in drop_cols if c in df.columns], inplace=True)
 
     # --- 2. Парсинг колонки Floor ("X out of Y" → floor_number, total_floors) ---
-    if 'Floor' in df.columns:
+    if "Floor" in df.columns:
         FLOOR_TEXT_MAP = {
-            'ground':          0,
-            'basement':       -1,
-            'lower basement': -2,
-            'upper basement': -1,
+            "ground": 0,
+            "basement": -1,
+            "lower basement": -2,
+            "upper basement": -1,
         }
 
         def parse_floor(val) -> tuple:
@@ -68,7 +68,7 @@ def preprocess(df: pd.DataFrame, target_log: bool = True) -> tuple:
             if pd.isna(val):
                 return np.nan, np.nan
 
-            parts = str(val).strip().lower().split(' out of ')
+            parts = str(val).strip().lower().split(" out of ")
             raw_floor = parts[0].strip()
 
             # Поверх — текст або число
@@ -91,19 +91,19 @@ def preprocess(df: pd.DataFrame, target_log: bool = True) -> tuple:
 
             return floor_num, total
 
-        parsed = df['Floor'].apply(parse_floor)
-        df['floor_number'] = parsed.apply(lambda x: x[0])
-        df['total_floors'] = parsed.apply(lambda x: x[1])
-        df.drop(columns=['Floor'], inplace=True)
+        parsed = df["Floor"].apply(parse_floor)
+        df["floor_number"] = parsed.apply(lambda x: x[0])
+        df["total_floors"] = parsed.apply(lambda x: x[1])
+        df.drop(columns=["Floor"], inplace=True)
 
         logger.info(
             f"Floor parsed -> floor_number ({df['floor_number'].notna().sum():,} non-null), "
             f"total_floors ({df['total_floors'].notna().sum():,} non-null)"
         )
-    
+
     # --- 3. Обробка пропущених значень ---
-    num_cols = df.select_dtypes(include='number').columns
-    cat_cols = df.select_dtypes(include='object').columns
+    num_cols = df.select_dtypes(include="number").columns
+    cat_cols = df.select_dtypes(include="object").columns
 
     df[num_cols] = df[num_cols].fillna(df[num_cols].median())
     for col in cat_cols:
@@ -116,13 +116,15 @@ def preprocess(df: pd.DataFrame, target_log: bool = True) -> tuple:
             df[col] = le.fit_transform(df[col].astype(str))
 
     # --- 5. Цільова змінна ---
-    y = df['Rent']
+    y = df["Rent"]
     if target_log:
         y = np.log1p(y)
         logger.info("Застосовано log1p до цільової змінної Rent")
 
-    X = df.drop(columns=['Rent'])
-    logger.info(f"Передобробка завершена. Features: {X.shape[1]}, Samples: {X.shape[0]:,}")
+    X = df.drop(columns=["Rent"])
+    logger.info(
+        f"Передобробка завершена. Features: {X.shape[1]}, Samples: {X.shape[0]:,}"
+    )
     return X, y
 
 

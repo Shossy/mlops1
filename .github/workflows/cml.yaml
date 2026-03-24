@@ -1,0 +1,92 @@
+# Lab 4: CI — lint, prepare, train, pytest (pre/post), CML report on PR.
+# Uses committed slice data/raw/house_rent_sample.csv (full CSV stays out of Git; see README).
+
+name: Model CI (Train, Test, CML)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      CI: "true"
+      PREPARE_NROWS: "8000"
+      TRAIN_N_ESTIMATORS: "50"
+      R2_THRESHOLD: "0.12"
+      METRICS_PATH: "metrics.json"
+      MODEL_PATH: "data/models/model.pkl"
+      REPORT_IMAGE_PATH: "notebooks/predictions_test.png"
+      DATA_TRAIN_PATH: "data/prepared/train.csv"
+      DATA_TEST_PATH: "data/prepared/test.csv"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: iterative/setup-cml@v2
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint (flake8)
+        run: |
+          flake8 src tests scripts --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Format check (black)
+        run: |
+          black src tests scripts --check
+
+      - name: Prepare data
+        run: |
+          python src/prepare.py data/raw/house_rent_sample.csv data/prepared
+
+      - name: Tests (pre-train)
+        run: pytest -m pre_train -q
+
+      - name: Train model
+        run: |
+          python src/train.py data/prepared data/models
+
+      - name: Tests (post-train + Quality Gate)
+        run: pytest -m post_train -q
+
+      - name: Upload model artifact (main only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: house-rent-model
+          path: data/models/model.pkl
+
+      - name: CML report (pull_request only)
+        if: github.event_name == 'pull_request'
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Model metrics (regression, log-target)" > report.md
+          echo "" >> report.md
+          echo '```json' >> report.md
+          cat metrics.json >> report.md
+          echo '```' >> report.md
+          echo "" >> report.md
+          echo "## Test set: actual vs predicted (INR)" >> report.md
+          cml publish notebooks/predictions_test.png --md >> report.md
+          echo "" >> report.md
+          echo "### Quality Gate" >> report.md
+          echo "Regression: \`test_r2 >= $R2_THRESHOLD\` (set in workflow env)." >> report.md
+          python scripts/baseline_diff.py metrics.json baseline/metrics.json >> report.md || true
+          cml comment create report.md

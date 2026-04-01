@@ -19,3 +19,12 @@ data/models/
 data/raw/House_Rent_10M_balanced_40cities.csv
 models/
 metrics.json
+confusion_matrix.png
+
+# Airflow
+airflow-logs/
+logs/
+plugins/
+airflow.db
+airflow.cfg
+webserver_config.py

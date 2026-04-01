@@ -1,0 +1,109 @@
+# =============================================================================
+# Docker Compose: Apache Airflow (LocalExecutor) for ML pipeline orchestration
+#
+# Usage:
+#   docker compose up airflow-init      # first-time DB migration + admin user
+#   docker compose up -d                # start scheduler + webserver
+#   open http://localhost:8080          # login: airflow / airflow
+#   docker compose down -v              # tear down (removes volumes)
+# =============================================================================
+
+x-airflow-common:
+  &airflow-common
+  image: apache/airflow:2.10.4-python3.11
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    # ML deps installed at container startup (kept lean — no Optuna/Hydra here)
+    _PIP_ADDITIONAL_REQUIREMENTS: >-
+      pandas scikit-learn mlflow dvc pyyaml joblib numpy matplotlib seaborn
+    # Project directory inside the container
+    PROJECT_DIR: /opt/airflow/project
+    R2_THRESHOLD: '0.5'
+    METRICS_PATH: metrics.json
+    MLFLOW_EXPERIMENT_NAME: House_Rent_Prediction
+    MODEL_NAME: HouseRentRF
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - .:/opt/airflow/project
+    - ./airflow-logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+  # Run as root inside the container — required on Windows Docker Desktop
+  # where volume mounts inherit the host user identity.
+  # On Linux, set AIRFLOW_UID=50000 in .env and use user: "${AIRFLOW_UID}:0"
+  user: "0:0"
+  depends_on:
+    &airflow-common-depends-on
+    postgres:
+      condition: service_healthy
+
+services:
+  # ---- Metadata DB ----
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  # ---- One-shot: DB init + admin user creation ----
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username airflow \
+          --password airflow \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ---- Scheduler (triggers DAG runs) ----
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+  # ---- Webserver (UI on port 8080) ----
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+
+volumes:
+  postgres-data:

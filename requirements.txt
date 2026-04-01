@@ -17,3 +17,4 @@ joblib
 pytest>=8.0
 black>=24.0
 flake8>=7.0
+apache-airflow

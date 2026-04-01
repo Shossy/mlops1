@@ -150,7 +150,7 @@ Workflow: [`.github/workflows/cml.yaml`](.github/workflows/cml.yaml). Події
 
 **Baseline:** файл [`baseline/metrics.json`](baseline/metrics.json) зберігає еталонні метрики з `main`; у PR CML-звіт доповнюється таблицею порівняння (`scripts/baseline_diff.py`). Після стабільного прогону на `main` варто оновити `baseline/metrics.json` реальними значеннями.
 
-### Лінтинг
+### Linting
 
 ```powershell
 flake8 src tests scripts --count --select=E9,F63,F7,F82 --statistics

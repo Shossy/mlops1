@@ -1,0 +1,68 @@
+# Lab 5 CI: lint, DAG integrity test, Docker build verification.
+# Runs alongside the existing cml.yaml workflow.
+
+name: CI (Lint, DAG Test, Docker Build)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (flake8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install linting tools
+        run: pip install flake8
+
+      - name: Run flake8
+        run: >
+          flake8 src tests scripts dags
+          --count
+          --select=E9,F63,F7,F82
+          --show-source
+          --statistics
+
+  dag-test:
+    name: DAG Integrity Test
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_HOME: /tmp/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      # Lightweight SQLite backend for CI (no Postgres needed)
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "sqlite:////tmp/airflow/airflow.db"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install apache-airflow==2.10.4 pytest
+          airflow db migrate
+
+      - name: Run DAG import tests
+        run: pytest tests/test_dag_integrity.py -v
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t mlops-ml-pipeline:ci .

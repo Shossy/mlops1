@@ -3,6 +3,9 @@ prepare:
   test_size: 0.2
   random_state: 42
 
+evaluate:
+  r2_threshold: 0.5
+
 train:
   n_estimators: 100
   max_depth: 20

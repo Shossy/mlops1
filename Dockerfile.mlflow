@@ -3,4 +3,5 @@ RUN pip install --no-cache-dir mlflow==2.17.2
 EXPOSE 5000
 VOLUME ["/mlflow"]
 WORKDIR /mlflow
-CMD ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "sqlite:////mlflow/mlflow.db", "--default-artifact-root", "file:///mlflow/artifacts"]
+# --serve-artifacts: remote clients (Airflow) upload via HTTP instead of writing file:///mlflow/... locally
+CMD ["mlflow", "server", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "sqlite:////mlflow/mlflow.db", "--serve-artifacts", "--artifacts-destination", "/mlflow/artifacts"]

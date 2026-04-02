@@ -33,6 +33,8 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-ddMMC8O_LRQVSvzWxvGEcpjtbKs6R9xqVtYopqeGez8=}
+      # Same value on webserver + scheduler so task logs load in the UI (avoid 403 on :8793)
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-zY8xW7vU6tS5rQ4pO3nM2lK1jI0hG9fE8dC7bA6zY5xW4vU3tS2rQ1pO0nM=}
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/project/dags

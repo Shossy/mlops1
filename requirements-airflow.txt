@@ -5,7 +5,8 @@ numpy
 scikit-learn
 matplotlib
 seaborn
-mlflow
+# Must match MLflow tracking server image (Dockerfile.mlflow); 3.x client calls APIs 2.x server lacks
+mlflow==2.17.2
 pyyaml
 joblib
 pyarrow

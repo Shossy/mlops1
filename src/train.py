@@ -23,6 +23,7 @@ import mlflow
 import mlflow.sklearn
 import pandas as pd
 import yaml
+from mlflow.tracking import MlflowClient
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
@@ -34,6 +35,54 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+def _resolve_experiment_name(default_name: str, project_root: Path) -> str:
+    """
+    Remote tracking (e.g. Docker) + experiments created with file:///mlflow/... as
+    artifact_location make the client try to mkdir /mlflow on the Airflow host.
+
+    Prefer MLFLOW_EXPERIMENT_NAME in orchestration. Otherwise, if an experiment
+    exists but uses an unusable file artifact root, switch to a fresh name so the
+    server assigns proxy/mlflow-artifacts storage (with --serve-artifacts).
+    """
+    env_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "").strip()
+    if env_name:
+        return env_name
+    tracking = os.environ.get("MLFLOW_TRACKING_URI", "")
+    if not tracking.startswith("http"):
+        return default_name
+    try:
+        client = MlflowClient()
+        exp = client.get_experiment_by_name(default_name)
+        if exp is None:
+            return default_name
+        loc = (exp.artifact_location or "").lower()
+        if loc.startswith("file:"):
+            try:
+                path = Path(exp.artifact_location.replace("file://", "").split("?")[0])
+                if not path.is_relative_to(project_root.resolve()):
+                    alt = f"{default_name}__http"
+                    logger.warning(
+                        "Experiment %r artifact_location=%r is not writable from this "
+                        "host; using %r (set MLFLOW_EXPERIMENT_NAME to control).",
+                        default_name,
+                        exp.artifact_location,
+                        alt,
+                    )
+                    return alt
+            except ValueError:
+                alt = f"{default_name}__http"
+                logger.warning(
+                    "Experiment %r has ambiguous file artifact_location=%r; using %r.",
+                    default_name,
+                    exp.artifact_location,
+                    alt,
+                )
+                return alt
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not inspect MLflow experiment location: %s", e)
+    return default_name
 
 
 def compute_metrics(y_true, y_pred, prefix: str = "") -> dict:
@@ -106,7 +155,10 @@ def main():
     min_samples_leaf = params["min_samples_leaf"]
     max_features = params["max_features"]
     random_state = params.get("random_state", 42)
-    experiment_name = params.get("experiment_name", "House_Rent_Prediction")
+    experiment_name = _resolve_experiment_name(
+        params.get("experiment_name", "House_Rent_Prediction"),
+        Path(__file__).resolve().parents[1],
+    )
 
     project_root = Path(__file__).resolve().parents[1]
     if os.environ.get("CI", "").lower() == "true":

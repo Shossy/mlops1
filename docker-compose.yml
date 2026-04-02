@@ -43,6 +43,8 @@ services:
       PROJECT_ROOT: /opt/airflow/project
       RAW_DATA_PATH: /opt/airflow/project/data/raw/house_rent_sample.csv
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      # Fresh experiment so artifact_location uses server --serve-artifacts (not old file:///mlflow in DB)
+      MLFLOW_EXPERIMENT_NAME: House_Rent_Airflow
       PYTHONPATH: /opt/airflow/project
     volumes:
       - .:/opt/airflow/project

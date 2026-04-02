@@ -41,6 +41,16 @@ def test_report_visualization_exists(report_image_path):
 
 
 @pytest.mark.post_train
+def test_confusion_matrix_exists(confusion_matrix_path):
+    assert os.path.isfile(
+        confusion_matrix_path
+    ), f"Confusion matrix image missing: {confusion_matrix_path}"
+    assert (
+        os.path.getsize(confusion_matrix_path) > 100
+    ), "Confusion matrix file too small"
+
+
+@pytest.mark.post_train
 def test_quality_gate_r2(metrics_path):
     threshold = float(os.environ.get("R2_THRESHOLD", "0.15"))
     with open(metrics_path, encoding="utf-8") as f:

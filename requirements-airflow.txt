@@ -1,0 +1,12 @@
+# ML deps for Airflow workers (Dockerfile.airflow). Keep separate from requirements.txt
+# to avoid clashing with Apache Airflow’s pinned transitive dependencies.
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+mlflow
+pyyaml
+joblib
+pyarrow
+fastparquet

@@ -19,3 +19,4 @@ data/models/
 data/raw/House_Rent_10M_balanced_40cities.csv
 models/
 metrics.json
+artifacts/

@@ -28,3 +28,8 @@ def metrics_path() -> str:
 @pytest.fixture
 def report_image_path() -> str:
     return os.environ.get("REPORT_IMAGE_PATH", "notebooks/predictions_test.png")
+
+
+@pytest.fixture
+def confusion_matrix_path() -> str:
+    return os.environ.get("CONFUSION_MATRIX_PATH", "artifacts/confusion_matrix.png")

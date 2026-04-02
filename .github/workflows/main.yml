@@ -1,0 +1,49 @@
+# Lab 5: lint, DAG import (DagBag), Docker image build (Linux CI).
+
+name: CI (lint, DAG, Docker)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_HOME: /tmp/airflow_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Prepare Airflow home
+        run: mkdir -p "$AIRFLOW_HOME"
+
+      - name: Install Apache Airflow (pinned constraints)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "apache-airflow==2.10.4" \
+            --constraint https://raw.githubusercontent.com/apache/airflow/constraints-2.10.4/constraints-3.11.txt
+
+      - name: Install lint tools
+        run: pip install flake8 black
+
+      - name: Lint (flake8)
+        run: |
+          flake8 src tests scripts dags --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Format check (black)
+        run: black src tests scripts dags --check
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Test DAG imports (DagBag)
+        run: pytest tests/test_dag_import.py -q
+
+      - name: Docker build (multi-stage ML image)
+        run: docker build -t mlops-lab:ci .

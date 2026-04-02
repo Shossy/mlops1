@@ -22,6 +22,7 @@ jobs:
       R2_THRESHOLD: "0.12"
       METRICS_PATH: "metrics.json"
       MODEL_PATH: "data/models/model.pkl"
+      CONFUSION_MATRIX_PATH: "artifacts/confusion_matrix.png"
       REPORT_IMAGE_PATH: "notebooks/predictions_test.png"
       DATA_TRAIN_PATH: "data/prepared/train.csv"
       DATA_TEST_PATH: "data/prepared/test.csv"
@@ -45,11 +46,11 @@ jobs:
 
       - name: Lint (flake8)
         run: |
-          flake8 src tests scripts --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src tests scripts dags --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Format check (black)
         run: |
-          black src tests scripts --check
+          black src tests scripts dags --check
 
       - name: Prepare data
         run: |
@@ -61,6 +62,10 @@ jobs:
       - name: Train model
         run: |
           python src/train.py data/prepared data/models
+
+      - name: Evaluate model
+        run: |
+          python src/evaluate.py data/models/model.pkl data/prepared
 
       - name: Tests (post-train + Quality Gate)
         run: pytest -m post_train -q

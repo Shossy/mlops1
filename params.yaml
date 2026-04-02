@@ -11,3 +11,6 @@ train:
   max_features: sqrt
   random_state: 42
   experiment_name: House_Rent_Prediction
+
+evaluate:
+  r2_threshold: 0.15

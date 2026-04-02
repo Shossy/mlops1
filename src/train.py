@@ -6,12 +6,12 @@ Usage (via DVC):
     python src/train.py data/prepared data/models
 """
 
-import json
 import logging
 import os
-import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import matplotlib
 
@@ -23,8 +23,11 @@ import mlflow
 import mlflow.sklearn
 import pandas as pd
 import yaml
+from mlflow.tracking import MlflowClient
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+from src.repro_metadata import write_mlflow_run_id  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,53 +37,52 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _git_commit_short(project_root: Path) -> str:
+def _resolve_experiment_name(default_name: str, project_root: Path) -> str:
+    """
+    Remote tracking (e.g. Docker) + experiments created with file:///mlflow/... as
+    artifact_location make the client try to mkdir /mlflow on the Airflow host.
+
+    Prefer MLFLOW_EXPERIMENT_NAME in orchestration. Otherwise, if an experiment
+    exists but uses an unusable file artifact root, switch to a fresh name so the
+    server assigns proxy/mlflow-artifacts storage (with --serve-artifacts).
+    """
+    env_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "").strip()
+    if env_name:
+        return env_name
+    tracking = os.environ.get("MLFLOW_TRACKING_URI", "")
+    if not tracking.startswith("http"):
+        return default_name
     try:
-        r = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if r.returncode == 0:
-            return r.stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return "unknown"
-
-
-def _dvc_raw_data_snippet(project_root: Path) -> str:
-    dvc_file = (
-        project_root / "data" / "raw" / "House_Rent_10M_balanced_40cities.csv.dvc"
-    )
-    if dvc_file.is_file():
-        try:
-            return dvc_file.read_text(encoding="utf-8")[:500]
-        except OSError:
-            pass
-    return "n/a"
-
-
-def _write_metrics_json(
-    path: str,
-    all_metrics: dict,
-    random_state: int,
-    git_commit: str,
-    dvc_snippet: str,
-) -> None:
-    payload = {
-        **all_metrics,
-        "random_state": random_state,
-        "git_commit": git_commit,
-        "dvc_raw_dvc_head": dvc_snippet,
-    }
-    parent = os.path.dirname(path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
-    logger.info(f"Metrics written to {path}")
+        client = MlflowClient()
+        exp = client.get_experiment_by_name(default_name)
+        if exp is None:
+            return default_name
+        loc = (exp.artifact_location or "").lower()
+        if loc.startswith("file:"):
+            try:
+                path = Path(exp.artifact_location.replace("file://", "").split("?")[0])
+                if not path.is_relative_to(project_root.resolve()):
+                    alt = f"{default_name}__http"
+                    logger.warning(
+                        "Experiment %r artifact_location=%r is not writable from this "
+                        "host; using %r (set MLFLOW_EXPERIMENT_NAME to control).",
+                        default_name,
+                        exp.artifact_location,
+                        alt,
+                    )
+                    return alt
+            except ValueError:
+                alt = f"{default_name}__http"
+                logger.warning(
+                    "Experiment %r has ambiguous file artifact_location=%r; using %r.",
+                    default_name,
+                    exp.artifact_location,
+                    alt,
+                )
+                return alt
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not inspect MLflow experiment location: %s", e)
+    return default_name
 
 
 def compute_metrics(y_true, y_pred, prefix: str = "") -> dict:
@@ -153,7 +155,10 @@ def main():
     min_samples_leaf = params["min_samples_leaf"]
     max_features = params["max_features"]
     random_state = params.get("random_state", 42)
-    experiment_name = params.get("experiment_name", "House_Rent_Prediction")
+    experiment_name = _resolve_experiment_name(
+        params.get("experiment_name", "House_Rent_Prediction"),
+        Path(__file__).resolve().parents[1],
+    )
 
     project_root = Path(__file__).resolve().parents[1]
     if os.environ.get("CI", "").lower() == "true":
@@ -284,15 +289,9 @@ def main():
         mlflow.sklearn.log_model(model, artifact_path="random_forest_model")
 
         logger.info(f"Model saved to {model_path}")
-        metrics_path = os.environ.get("METRICS_PATH", "metrics.json")
-        _write_metrics_json(
-            metrics_path,
-            all_metrics,
-            random_state=random_state,
-            git_commit=_git_commit_short(project_root),
-            dvc_snippet=_dvc_raw_data_snippet(project_root),
-        )
         run_id = mlflow.active_run().info.run_id
+        rid_path = write_mlflow_run_id(output_dir, run_id)
+        logger.info(f"MLflow run id written to {rid_path}")
         logger.info(f"Run complete. Run ID: {run_id}")
         logger.info("Open MLflow UI: mlflow ui  ->  http://127.0.0.1:5000")
 

@@ -15,10 +15,25 @@ stages:
     deps:
       - data/prepared
       - src/train.py
+      - src/repro_metadata.py
     params:
       - train
     outs:
       - data/models
+
+  evaluate:
+    cmd: python src/evaluate.py data/models/model.pkl data/prepared
+    deps:
+      - data/models/model.pkl
+      - data/prepared/test.csv
+      - src/evaluate.py
+      - src/repro_metadata.py
+      - params.yaml
+    params:
+      - evaluate
+    outs:
+      - metrics.json
+      - artifacts/confusion_matrix.png
 
   optimize:
     cmd: python src/optimize.py

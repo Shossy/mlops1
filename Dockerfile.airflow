@@ -1,0 +1,11 @@
+# Airflow worker/web/scheduler image: official image + project ML dependencies for BashOperator tasks.
+FROM apache/airflow:2.10.4-python3.11
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+COPY requirements-airflow.txt /opt/airflow/project-requirements.txt
+RUN pip install --no-cache-dir -r /opt/airflow/project-requirements.txt
